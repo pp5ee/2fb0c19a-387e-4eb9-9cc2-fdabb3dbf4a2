@@ -141,7 +141,11 @@
             isGameOver = false;
             isPaused = false;
             scoreElement.textContent = score;
-            highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+            try {
+                highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+            } catch (e) {
+                highScore = 0;
+            }
             highScoreElement.textContent = highScore;
             gameStatusElement.textContent = '';
             gameStatusElement.classList.remove('paused');
@@ -155,7 +159,11 @@
             if (score > highScore) {
                 highScore = score;
                 highScoreElement.textContent = highScore;
-                localStorage.setItem(HIGH_SCORE_KEY, highScore);
+                try {
+                    localStorage.setItem(HIGH_SCORE_KEY, highScore);
+                } catch (e) {
+                    // localStorage unavailable (private browsing, storage full, etc.)
+                }
             }
         }
 
@@ -263,8 +271,9 @@
         }
 
         document.addEventListener('keydown', (e) => {
-            // Handle pause with Space key
+            // Handle pause with Space key - ignore key repeat
             if (e.code === 'Space') {
+                if (e.repeat) return;
                 togglePause();
                 e.preventDefault();
                 return;
@@ -282,9 +291,9 @@
 
             const newDir = keyMap[e.key];
             if (newDir) {
-                // Prevent reversing direction into itself
-                if ((newDir.x !== 0 && direction.x === 0) ||
-                    (newDir.y !== 0 && direction.y === 0)) {
+                // Prevent reversing direction into itself - check against nextDirection
+                if ((newDir.x !== 0 && nextDirection.x === 0) ||
+                    (newDir.y !== 0 && nextDirection.y === 0)) {
                     nextDirection = newDir;
                 }
                 e.preventDefault();
