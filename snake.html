@@ -119,9 +119,16 @@
         const GRID_COUNT = canvas.width / GRID_SIZE;
         const HIGH_SCORE_KEY = 'snakeGameHighScore';
 
+        // Direction mappings for arrow keys
+        const DIRECTION_MAP = {
+            'ArrowUp': { x: 0, y: -1 },
+            'ArrowDown': { x: 0, y: 1 },
+            'ArrowLeft': { x: -1, y: 0 },
+            'ArrowRight': { x: 1, y: 0 }
+        };
+
         let snake = [];
         let food = { x: 0, y: 0 };
-        let direction = { x: 0, y: 0 };
         let nextDirection = { x: 1, y: 0 };
         let score = 0;
         let highScore = 0;
@@ -129,23 +136,35 @@
         let isGameOver = false;
         let isPaused = false;
 
+        // Helper to safely get/set localStorage
+        function getHighScore() {
+            try {
+                return parseInt(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+            } catch (e) {
+                return 0;
+            }
+        }
+
+        function setHighScore(value) {
+            try {
+                localStorage.setItem(HIGH_SCORE_KEY, value);
+            } catch (e) {
+                // localStorage unavailable (private browsing, storage full, etc.)
+            }
+        }
+
         function initGame() {
             snake = [
                 { x: 10, y: 10 },
                 { x: 9, y: 10 },
                 { x: 8, y: 10 }
             ];
-            direction = { x: 1, y: 0 };
             nextDirection = { x: 1, y: 0 };
             score = 0;
             isGameOver = false;
             isPaused = false;
             scoreElement.textContent = score;
-            try {
-                highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
-            } catch (e) {
-                highScore = 0;
-            }
+            highScore = getHighScore();
             highScoreElement.textContent = highScore;
             gameStatusElement.textContent = '';
             gameStatusElement.classList.remove('paused');
@@ -159,11 +178,7 @@
             if (score > highScore) {
                 highScore = score;
                 highScoreElement.textContent = highScore;
-                try {
-                    localStorage.setItem(HIGH_SCORE_KEY, highScore);
-                } catch (e) {
-                    // localStorage unavailable (private browsing, storage full, etc.)
-                }
+                setHighScore(highScore);
             }
         }
 
@@ -180,25 +195,20 @@
         }
 
         function spawnFood() {
-            food = {
-                x: Math.floor(Math.random() * GRID_COUNT),
-                y: Math.floor(Math.random() * GRID_COUNT)
-            };
-            for (let segment of snake) {
-                if (segment.x === food.x && segment.y === food.y) {
-                    spawnFood();
-                    break;
-                }
-            }
+            let newFood;
+            do {
+                newFood = {
+                    x: Math.floor(Math.random() * GRID_COUNT),
+                    y: Math.floor(Math.random() * GRID_COUNT)
+                };
+            } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
+            food = newFood;
         }
 
         function update() {
             if (isGameOver || isPaused) return;
 
-            // Apply buffered direction
-            direction = { ...nextDirection };
-
-            const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+            const head = { x: snake[0].x + nextDirection.x, y: snake[0].y + nextDirection.y };
 
             if (head.x < 0 || head.x >= GRID_COUNT || head.y < 0 || head.y >= GRID_COUNT) {
                 gameOver();
@@ -230,13 +240,10 @@
             ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = '#00ff88';
-            for (let i = 0; i < snake.length; i++) {
-                const segment = snake[i];
-                const isHead = i === 0;
-                ctx.fillStyle = isHead ? '#00ff88' : '#00cc6a';
+            snake.forEach((segment, i) => {
+                ctx.fillStyle = i === 0 ? '#00ff88' : '#00cc6a';
                 ctx.fillRect(segment.x * GRID_SIZE, segment.y * GRID_SIZE, GRID_SIZE - 2, GRID_SIZE - 2);
-            }
+            });
 
             ctx.fillStyle = '#ff4444';
             ctx.beginPath();
@@ -279,17 +286,10 @@
                 return;
             }
 
-            // Don't process direction changes when paused
+            // Don't process direction changes when paused or game over
             if (isPaused || isGameOver) return;
 
-            const keyMap = {
-                'ArrowUp': { x: 0, y: -1 },
-                'ArrowDown': { x: 0, y: 1 },
-                'ArrowLeft': { x: -1, y: 0 },
-                'ArrowRight': { x: 1, y: 0 }
-            };
-
-            const newDir = keyMap[e.key];
+            const newDir = DIRECTION_MAP[e.key];
             if (newDir) {
                 // Prevent reversing direction into itself - check against nextDirection
                 if ((newDir.x !== 0 && nextDirection.x === 0) ||
